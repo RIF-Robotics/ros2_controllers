@@ -56,6 +56,11 @@ def update_combo(combo, new_vals):
         combo.setCurrentIndex(selected_id)  # Restore selection
         combo.blockSignals(False)
 
+        # if the combo box isn't set yet, set it automatically to the first
+        # item in the list
+        if combo.currentIndex() == -1:
+            combo.setCurrentIndex(0)
+
 def _is_permutation(a, b):
     """
     @type a []

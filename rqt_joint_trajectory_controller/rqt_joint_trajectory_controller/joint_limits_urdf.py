@@ -8,16 +8,11 @@
 import xml.dom.minidom
 from math import pi
 
-def get_joint_limits(node, key='robot_description', use_smallest_joint_limits=True):
+def get_joint_limits(robot_description, use_smallest_joint_limits=True):
     use_small = use_smallest_joint_limits
     use_mimic = True
 
-    # Code inspired on the joint_state_publisher package by David Lu!!!
-    # https://github.com/ros/robot_model/blob/indigo-devel/
-    # joint_state_publisher/joint_state_publisher/joint_state_publisher
-    node.declare_parameter(key)
-    description = self.get_parameter(key).get_parameter_value().string_value
-    robot = xml.dom.minidom.parseString(description)\
+    robot = xml.dom.minidom.parseString(robot_description)\
         .getElementsByTagName('robot')[0]
     free_joints = {}
     dependent_joints = {}

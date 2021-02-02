@@ -32,14 +32,22 @@
 
 import os
 
+from math import floor
+
 from ament_index_python import get_resource
 from geometry_msgs.msg import Twist
+
+from rclpy.qos import QoSProfile, DurabilityPolicy, HistoryPolicy
+from rclpy.duration import Duration
+
+from std_msgs.msg import String
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
+from control_msgs.msg import JointTrajectoryControllerState
 
 from python_qt_binding import loadUi
 from python_qt_binding.QtCore import Qt, QTimer, Signal, Slot
 from python_qt_binding.QtGui import QKeySequence
 from python_qt_binding.QtWidgets import QShortcut, QWidget, QFormLayout
-from rclpy.qos import QoSProfile
 from rqt_gui_py.plugin import Plugin
 
 from rqt_joint_trajectory_controller.double_editor import DoubleEditor
@@ -92,6 +100,16 @@ class JointTrajectoryController(Plugin):
         self.setObjectName('JointTrajectoryController')
 
         self._node = context.node
+
+        # Get the robot_description via a topic
+        qos_profile = QoSProfile(depth=1,
+                                 history=HistoryPolicy.KEEP_LAST,
+                                 durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self._robot_description_sub = self._node.create_subscription(
+            String, 'robot_description',
+            self._robot_description_cb, qos_profile)
+        self._robot_description = None
+
         self._publisher = None
         self._widget = QWidget()
 
@@ -174,6 +192,8 @@ class JointTrajectoryController(Plugin):
 
         self._list_controllers = None
 
+        self._traj_ns_topic_dict = None
+
     def shutdown_plugin(self):
         self._update_cmd_timer.stop()
         self._update_act_pos_timer.stop()
@@ -215,30 +235,45 @@ class JointTrajectoryController(Plugin):
         # Usually used to open a modal configuration dialog
 
     def _update_cm_list(self):
-        update_combo(self._widget.cm_combo, self._list_cm())
+        trajectory_topics = _search_for_trajectory_topics(self._node)
+
+        ## TODO: remove test code
+        #trajectory_topics.append('/my_test/controller')
+        #trajectory_topics.append('/no_namespace')
+        #trajectory_topics.append('no_root')
+
+        self._traj_ns_topic_dict = {}
+        for full_topic in trajectory_topics:
+            ns, topic = _split_namespace_from_topic(full_topic)
+            self._traj_ns_topic_dict.setdefault(ns, []).append(topic)
+
+        update_combo(self._widget.cm_combo, list(self._traj_ns_topic_dict.keys()))
 
     def _update_jtc_list(self):
-        print('_update_jtc_list()')
         # Clear controller list if no controller information is available
-        if not self._list_controllers:
+        if self._traj_ns_topic_dict is None:
             self._widget.jtc_combo.clear()
             return
 
-        # List of running controllers with a valid joint limits specification
-        # for _all_ their joints
-        running_jtc = self._running_jtc_info()
-        if running_jtc and not self._robot_joint_limits:
-            self._robot_joint_limits = get_joint_limits()  # Lazy evaluation
-        valid_jtc = []
-        for jtc_info in running_jtc:
-            has_limits = all(name in self._robot_joint_limits
-                             for name in _jtc_joint_names(jtc_info))
-            if has_limits:
-                valid_jtc.append(jtc_info);
-        valid_jtc_names = [data.name for data in valid_jtc]
+        #print(get_joint_limits(self._robot_description))
 
-        # Update widget
-        update_combo(self._widget.jtc_combo, sorted(valid_jtc_names))
+        ## List of running controllers with a valid joint limits specification
+        ## for _all_ their joints
+        #running_jtc = self._running_jtc_info()
+        #if running_jtc and not self._robot_joint_limits:
+        #    self._robot_joint_limits = get_joint_limits()  # Lazy evaluation
+        #valid_jtc = []
+        #for jtc_info in running_jtc:
+        #    has_limits = all(name in self._robot_joint_limits
+        #                     for name in _jtc_joint_names(jtc_info))
+        #    if has_limits:
+        #        valid_jtc.append(jtc_info);
+        #valid_jtc_names = [data.name for data in valid_jtc]
+
+        # Get the currently selected namespace
+        curr_ns = self._widget.cm_combo.currentText()
+        topics = self._traj_ns_topic_dict[curr_ns]
+        update_combo(self._widget.jtc_combo, topics)
 
     def _on_speed_scaling_change(self, val):
         self._speed_scale = val / self._speed_scaling_widget.slider.maximum()
@@ -251,10 +286,6 @@ class JointTrajectoryController(Plugin):
     def _on_cm_change(self, cm_ns):
         self._cm_ns = cm_ns
         if cm_ns:
-            self._list_controllers = ControllerLister(cm_ns)
-            # NOTE: Clear below is important, as different controller managers
-            # might have controllers with the same name but different
-            # configurations. Clearing forces controller re-discovery
             self._widget.jtc_combo.clear()
             self._update_jtc_list()
         else:
@@ -289,14 +320,9 @@ class JointTrajectoryController(Plugin):
             self._update_act_pos_timer.start()
 
     def _load_jtc(self):
-        print('_load_jtc')
-
-        # Initialize joint data corresponding to selected controller
-        running_jtc = self._running_jtc_info()
-        self._joint_names = next(_jtc_joint_names(x) for x in running_jtc
-                                 if x.name == self._jtc_name)
-        for name in self._joint_names:
-            self._joint_pos[name] = {}
+        self._robot_joint_limits = get_joint_limits(self._robot_description)
+        self._joint_names = list(self._robot_joint_limits.keys())
+        self._joint_pos = { name: {} for name in self._joint_names }
 
         # Update joint display
         try:
@@ -323,19 +349,24 @@ class JointTrajectoryController(Plugin):
 
         # Setup ROS interfaces
         jtc_ns = _resolve_controller_ns(self._cm_ns, self._jtc_name)
-        state_topic = jtc_ns + '/state'
+        #state_topic = jtc_ns + '/state'
+        state_topic = 'state'
         #cmd_topic = jtc_ns + '/command'
         cmd_topic = '/joint_trajectory_controller/joint_trajectory'
-        self._state_sub = rospy.Subscriber(state_topic,
-                                           JointTrajectoryControllerState,
-                                           self._state_cb,
-                                           queue_size=1)
+        #self._state_sub = rospy.Subscriber(state_topic,
+        #                                   JointTrajectoryControllerState,
+        #                                   self._state_cb,
+        #                                   queue_size=1)
 
-        self._state_sub = self._node.create_subscription(JointTrajectoryControllerState,
-                                                         state_topic,
-                                                         self._state_cb, 1)
+        qos_profile = QoSProfile(depth=1,
+                                 history=HistoryPolicy.KEEP_LAST,
+                                 durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
-        self._cmd_pub = self._node.create_publisher(JointTrajectory, 'cmd_topic', 1)
+        self._state_sub = self._node.create_subscription(
+            JointTrajectoryControllerState, state_topic, self._state_cb,
+            qos_profile)
+
+        self._cmd_pub = self._node.create_publisher(JointTrajectory, cmd_topic, 1)
 
         # Start updating the joint positions
         self.jointStateChanged.connect(self._on_joint_state_change)
@@ -383,13 +414,16 @@ class JointTrajectoryController(Plugin):
 
     def _unregister_cmd_pub(self):
         if self._cmd_pub is not None:
-            self._cmd_pub.unregister()
+            self._node.destroy_publisher(self._cmd_pub)
             self._cmd_pub = None
 
     def _unregister_state_sub(self):
         if self._state_sub is not None:
-            self._state_sub.unregister()
+            self._node.destroy_subscription(self._state_sub)
             self._state_sub = None
+
+    def _robot_description_cb(self, msg):
+        self._robot_description = msg.data
 
     def _state_cb(self, msg):
         actual_pos = {}
@@ -417,7 +451,12 @@ class JointTrajectoryController(Plugin):
             max_vel = self._robot_joint_limits[name]['max_velocity']
             dur.append(max(abs(cmd - pos) / max_vel, self._min_traj_dur))
             point.positions.append(cmd)
-        point.time_from_start = rospy.Duration(max(dur) / self._speed_scale)
+
+        max_duration_scaled = max(dur) / self._speed_scale
+        seconds = floor(max_duration_scaled)
+        nanoseconds = (max_duration_scaled - seconds) * 1e9
+        duration = Duration(seconds=seconds, nanoseconds=nanoseconds)
+        point.time_from_start = duration.to_msg()
         traj.points.append(point)
 
         self._cmd_pub.publish(traj)
@@ -475,3 +514,24 @@ def _resolve_controller_ns(cm_ns, controller_name):
         ns += '/'
     ns += controller_name
     return ns
+
+def _split_namespace_from_topic(topic):
+    split = topic.rsplit('/', 1)
+    if len(split) == 2:
+        if split[0] == '':
+            return '/', split[1]
+        else:
+            return split[0], split[1]
+    elif len(split) == 1:
+        return '/', split[0]
+
+def _search_for_trajectory_topics(node):
+    topics = node.get_topic_names_and_types()
+
+    trajectory_topics = []
+    for topic in topics:
+        for topic_type in topic[1]:
+            if topic_type == 'trajectory_msgs/msg/JointTrajectory':
+                trajectory_topics.append(topic[0])
+
+    return trajectory_topics
