@@ -1,0 +1,17 @@
+<library path="src">
+  <class name="JointTrajectoryController" type="rqt_joint_trajectory_controller.joint_trajectory_controller.JointTrajectoryController" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      Graphical frontend for interacting with joint_trajectory_controller instances
+    </description>
+    <qtgui>
+      <group>
+        <label>Robot Tools</label>
+        <icon type="theme">folder</icon>
+        <statustip>Plugins related to robot tools.</statustip>
+      </group>
+      <label>Joint Trajectory Controller</label>
+      <icon type="theme">input-gaming</icon>
+      <statustip>A Python GUI plugin for commanding robot joints using trajectory_msgs/msg/JointTrajectory messages.</statustip>
+    </qtgui>
+  </class>
+</library>
