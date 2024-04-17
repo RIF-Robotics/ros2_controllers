@@ -1,4 +1,9 @@
 joint_trajectory_controller:
+  action_server_name : {
+    type: string,
+    default_value: 'follow_joint_trajectory',
+    description: "Action server name",
+  }
   joints: {
     type: string_array,
     default_value: [],
