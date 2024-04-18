@@ -108,6 +108,8 @@ controller_interface::return_type AdmittanceRule::reset(const size_t num_joints)
   wrench_world_.setZero();
   end_effector_weight_.setZero();
 
+  f_base_state_ = Idle;
+
   // load/initialize Eigen types from parameters
   apply_parameters_update();
 
@@ -283,6 +285,30 @@ bool AdmittanceRule::calculate_admittance_rule(AdmittanceState & admittance_stat
   bool success = kinematics_->convert_cartesian_deltas_to_joint_deltas(
     admittance_state.current_joint_pos, X_ddot, admittance_state.ft_sensor_frame,
     admittance_state.joint_acc);
+
+  //std::cout << "F_base: " << F_base(2) << std::endl;
+  //std::cout << "X_ddot: " << X_ddot(2) << std::endl;
+
+  switch(f_base_state_) {
+    case Idle:
+      if (F_base(2) > (prev_F_base_(2) + 0.20)) {
+        std::cout << "F_base increasing!!!" << std::endl;
+        prev_F_base_ = F_base;
+        f_base_state_ = Increasing;
+      }
+      break;
+    case Increasing:
+      if (F_base(2) < (prev_F_base_(2) - 0.5)) {
+        std::cout << "F_base decreasing!!!" << std::endl;
+        prev_F_base_ = F_base;
+        f_base_state_ = Decreasing;
+      }
+      break;
+    case Decreasing:
+      break;
+    default:
+      break;
+  }
 
   // add damping if cartesian velocity falls below threshold
   for (int64_t i = 0; i < admittance_state.joint_acc.size(); ++i)

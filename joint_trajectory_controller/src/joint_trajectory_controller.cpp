@@ -1171,16 +1171,22 @@ rclcpp_action::CancelResponse JointTrajectoryController::goal_cancelled_callback
 void JointTrajectoryController::goal_accepted_callback(
   std::shared_ptr<rclcpp_action::ServerGoalHandle<FollowJTrajAction>> goal_handle)
 {
+  RCLCPP_INFO(
+      get_node()->get_logger(), "goal_accepted_callback - start");
+
   // mark a pending goal
   rt_has_pending_goal_.writeFromNonRT(true);
 
   // Update new trajectory
   {
+    RCLCPP_INFO(get_node()->get_logger(), "goal_accepted_callback - A");
     preempt_active_goal();
+    RCLCPP_INFO(get_node()->get_logger(), "goal_accepted_callback - B");
     auto traj_msg =
       std::make_shared<trajectory_msgs::msg::JointTrajectory>(goal_handle->get_goal()->trajectory);
 
     add_new_trajectory_msg(traj_msg);
+    RCLCPP_INFO(get_node()->get_logger(), "goal_accepted_callback - C");
     rt_is_holding_.writeFromNonRT(false);
   }
 
@@ -1190,6 +1196,8 @@ void JointTrajectoryController::goal_accepted_callback(
   rt_goal->execute();
   rt_active_goal_.writeFromNonRT(rt_goal);
 
+  RCLCPP_INFO(get_node()->get_logger(), "goal_accepted_callback - D");
+
   // Set smartpointer to expire for create_wall_timer to delete previous entry from timer list
   goal_handle_timer_.reset();
 
@@ -1197,6 +1205,9 @@ void JointTrajectoryController::goal_accepted_callback(
   goal_handle_timer_ = get_node()->create_wall_timer(
     action_monitor_period_.to_chrono<std::chrono::nanoseconds>(),
     std::bind(&RealtimeGoalHandle::runNonRealtime, rt_goal));
+
+  RCLCPP_INFO(
+      get_node()->get_logger(), "goal_accepted_callback - end");
 }
 
 void JointTrajectoryController::compute_error_for_joint(

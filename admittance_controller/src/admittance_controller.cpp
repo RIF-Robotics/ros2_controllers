@@ -464,13 +464,20 @@ controller_interface::return_type AdmittanceController::update_and_write_command
     // apply admittance control to reference to determine desired state
     admittance_->update(joint_state_, ft_values_, reference_, period, reference_admittance_);
 
-    // write calculated values to joint interfaces
-    write_state_to_hardware(reference_admittance_);
+    if (admittance_->get_table_force_state() == FBaseState::Increasing) {
+      //write_state_to_hardware(joint_state_);
+      // set_enabled(false); // TODO
+      std::cout << "+++++++++++++++++++++++++++++++ DISABLED ADMITTANCE!" << std::endl;
+    } else {
 
-    // Publish controller state
-    state_publisher_->lock();
-    state_publisher_->msg_ = admittance_->get_controller_state();
-    state_publisher_->unlockAndPublish();
+      // write calculated values to joint interfaces
+      write_state_to_hardware(reference_admittance_);
+
+      // Publish controller state
+      state_publisher_->lock();
+      state_publisher_->msg_ = admittance_->get_controller_state();
+      state_publisher_->unlockAndPublish();
+    }
   } else {
     // Pass through commanded values
     write_state_to_hardware(reference_);

@@ -94,6 +94,12 @@ struct AdmittanceState
   std::string ft_sensor_frame;
 };
 
+enum FBaseState {
+    Idle,
+    Increasing,
+    Decreasing
+};
+
 class AdmittanceRule
 {
 public:
@@ -159,6 +165,10 @@ public:
    */
   const control_msgs::msg::AdmittanceControllerState & get_controller_state();
 
+  const FBaseState & get_table_force_state() {
+    return f_base_state_;
+  }
+
 public:
   // admittance config parameters
   std::shared_ptr<admittance_controller::ParamListener> parameter_handler_;
@@ -215,6 +225,10 @@ protected:
 
   // ROS
   control_msgs::msg::AdmittanceControllerState state_message_;
+
+  Eigen::Matrix<double, 6, 1> prev_F_base_;
+
+  FBaseState f_base_state_ = Idle;
 };
 
 }  // namespace admittance_controller
