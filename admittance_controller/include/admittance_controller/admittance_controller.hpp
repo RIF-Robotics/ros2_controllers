@@ -32,6 +32,7 @@
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "geometry_msgs/msg/wrench_stamped.hpp"
+#include "rif_msgs/srv/set_bool.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "pluginlib/class_loader.hpp"
 #include "rclcpp/duration.hpp"
@@ -183,6 +184,15 @@ protected:
    * @brief Write values from state_command to claimed hardware interfaces
    */
   void write_state_to_hardware(const trajectory_msgs::msg::JointTrajectoryPoint & state_command);
+
+  void enable_cb(const std::shared_ptr<rif_msgs::srv::SetBool::Request> request,
+                 std::shared_ptr<rif_msgs::srv::SetBool::Response> response);
+  rclcpp::Service<rif_msgs::srv::SetBool>::SharedPtr enable_service_;
+
+  std::mutex mutex_enabled_;
+  bool enabled_ = false;
+  bool set_enabled(bool enabled);
+  bool is_enabled();
 };
 
 }  // namespace admittance_controller

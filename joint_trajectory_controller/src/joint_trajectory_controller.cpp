@@ -168,6 +168,7 @@ controller_interface::return_type JointTrajectoryController::update(
     if (!traj_external_point_ptr_->is_sampled_already())
     {
       first_sample = true;
+      last_point_written_ = false;
       if (params_.open_loop_control)
       {
         traj_external_point_ptr_->set_point_before_trajectory_msg(
@@ -200,6 +201,7 @@ controller_interface::return_type JointTrajectoryController::update(
       bool outside_goal_tolerance = false;
       bool within_goal_time = true;
       const bool before_last_point = end_segment_itr != traj_external_point_ptr_->end();
+      const bool is_last_point = end_segment_itr == traj_external_point_ptr_->end();
 
       // have we reached the end, are not holding position, and is a timeout configured?
       // Check independently of other tolerances
@@ -267,33 +269,37 @@ controller_interface::return_type JointTrajectoryController::update(
           }
         }
 
-        // set values for next hardware write()
-        if (has_position_command_interface_)
-        {
-          assign_interface_from_point(joint_command_interface_[0], state_desired_.positions);
-        }
-        if (has_velocity_command_interface_)
-        {
-          if (use_closed_loop_pid_adapter_)
-          {
-            assign_interface_from_point(joint_command_interface_[1], tmp_command_);
-          }
-          else
-          {
-            assign_interface_from_point(joint_command_interface_[1], state_desired_.velocities);
-          }
-        }
-        if (has_acceleration_command_interface_)
-        {
-          assign_interface_from_point(joint_command_interface_[2], state_desired_.accelerations);
-        }
-        if (has_effort_command_interface_)
-        {
-          assign_interface_from_point(joint_command_interface_[3], tmp_command_);
-        }
+        if (before_last_point || (is_last_point && !last_point_written_)) {
+          last_point_written_ = true;
 
-        // store the previous command. Used in open-loop control mode
-        last_commanded_state_ = state_desired_;
+          // set values for next hardware write()
+          if (has_position_command_interface_)
+          {
+            assign_interface_from_point(joint_command_interface_[0], state_desired_.positions);
+          }
+          if (has_velocity_command_interface_)
+          {
+            if (use_closed_loop_pid_adapter_)
+            {
+              assign_interface_from_point(joint_command_interface_[1], tmp_command_);
+            }
+            else
+            {
+              assign_interface_from_point(joint_command_interface_[1], state_desired_.velocities);
+            }
+          }
+          if (has_acceleration_command_interface_)
+          {
+            assign_interface_from_point(joint_command_interface_[2], state_desired_.accelerations);
+          }
+          if (has_effort_command_interface_)
+          {
+            assign_interface_from_point(joint_command_interface_[3], tmp_command_);
+          }
+
+          // store the previous command. Used in open-loop control mode
+          last_commanded_state_ = state_desired_;
+        }
       }
 
       if (active_goal)

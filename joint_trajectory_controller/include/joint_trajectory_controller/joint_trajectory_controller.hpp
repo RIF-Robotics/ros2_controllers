@@ -301,6 +301,8 @@ private:
 
   urdf::Model model_;
 
+  bool last_point_written_ = false;
+
   /**
    * @brief Assigns the values from a trajectory point interface to a joint interface.
    *
