@@ -464,9 +464,9 @@ controller_interface::return_type AdmittanceController::update_and_write_command
     // apply admittance control to reference to determine desired state
     admittance_->update(joint_state_, ft_values_, reference_, period, reference_admittance_);
 
-    if (admittance_->get_table_force_state() == FBaseState::Increasing) {
-      //write_state_to_hardware(joint_state_);
-      // set_enabled(false); // TODO
+    //if (admittance_->get_table_force_state() == FBaseState::Increasing) {
+    if (false) {
+      set_enabled(false);
       std::cout << "+++++++++++++++++++++++++++++++ DISABLED ADMITTANCE!" << std::endl;
     } else {
 
