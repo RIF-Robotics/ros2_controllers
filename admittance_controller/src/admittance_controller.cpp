@@ -99,6 +99,9 @@ bool AdmittanceController::set_enabled(bool enabled)
     }
   }
   enabled_ = enabled;
+
+  RCLCPP_INFO(get_node()->get_logger(), "Admittance controller enabled: %d", enabled_);
+
   return true;
 }
 
