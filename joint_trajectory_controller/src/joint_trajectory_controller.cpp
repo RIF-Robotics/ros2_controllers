@@ -1171,6 +1171,8 @@ rclcpp_action::CancelResponse JointTrajectoryController::goal_cancelled_callback
 void JointTrajectoryController::goal_accepted_callback(
   std::shared_ptr<rclcpp_action::ServerGoalHandle<FollowJTrajAction>> goal_handle)
 {
+  RCLCPP_INFO(get_node()->get_logger(), "Starting goal_accepted_callback!");
+
   // mark a pending goal
   rt_has_pending_goal_.writeFromNonRT(true);
 
@@ -1197,6 +1199,8 @@ void JointTrajectoryController::goal_accepted_callback(
   goal_handle_timer_ = get_node()->create_wall_timer(
     action_monitor_period_.to_chrono<std::chrono::nanoseconds>(),
     std::bind(&RealtimeGoalHandle::runNonRealtime, rt_goal));
+
+  RCLCPP_INFO(get_node()->get_logger(), "Completed goal_accepted_callback!");
 }
 
 void JointTrajectoryController::compute_error_for_joint(
