@@ -34,7 +34,7 @@ constexpr auto NUM_CARTESIAN_DOF = 6;  // (3 translation + 3 rotation)
 
 /// Configure admittance rule memory for num joints and load kinematics interface
 controller_interface::return_type AdmittanceRule::configure(
-  const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> & node, const size_t num_joints)
+    const std::shared_ptr<rclcpp_lifecycle::LifecycleNode> & node, const size_t num_joints, const std::string& robot_description)
 {
   num_joints_ = num_joints;
 
@@ -52,16 +52,8 @@ controller_interface::return_type AdmittanceRule::configure(
       kinematics_ = std::unique_ptr<kinematics_interface::KinematicsInterface>(
         kinematics_loader_->createUnmanagedInstance(parameters_.kinematics.plugin_name));
 
-      auto robot_param = rclcpp::Parameter();
-      if (!node->get_node_parameters_interface()->get_parameter("robot_description", robot_param))
-      {
-        RCLCPP_ERROR(
-            rclcpp::get_logger("AdmittanceRule"), "parameter robot_description not set in admittance_controller");
-        return controller_interface::return_type::ERROR;
-      }
-
       if (!kinematics_->initialize(
-              node->get_node_parameters_interface(), parameters_.kinematics.tip, robot_param.as_string()))
+              node->get_node_parameters_interface(), parameters_.kinematics.tip, robot_description))
       {
         return controller_interface::return_type::ERROR;
       }
