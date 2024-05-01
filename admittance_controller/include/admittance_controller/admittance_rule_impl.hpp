@@ -1,3 +1,4 @@
+
 // Copyright (c) 2022, PickNik, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,8 +51,17 @@ controller_interface::return_type AdmittanceRule::configure(
           parameters_.kinematics.plugin_package, "kinematics_interface::KinematicsInterface");
       kinematics_ = std::unique_ptr<kinematics_interface::KinematicsInterface>(
         kinematics_loader_->createUnmanagedInstance(parameters_.kinematics.plugin_name));
+
+      auto robot_param = rclcpp::Parameter();
+      if (!node->get_node_parameters_interface()->get_parameter("robot_description", robot_param))
+      {
+        RCLCPP_ERROR(
+            rclcpp::get_logger("AdmittanceRule"), "parameter robot_description not set in admittance_controller");
+        return controller_interface::return_type::ERROR;
+      }
+
       if (!kinematics_->initialize(
-            node->get_node_parameters_interface(), parameters_.kinematics.tip))
+              node->get_node_parameters_interface(), parameters_.kinematics.tip, robot_param.as_string()))
       {
         return controller_interface::return_type::ERROR;
       }

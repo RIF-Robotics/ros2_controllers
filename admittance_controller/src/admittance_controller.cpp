@@ -58,7 +58,61 @@ controller_interface::CallbackReturn AdmittanceController::on_init()
   reference_admittance_ = last_reference_;
   joint_state_ = last_reference_;
 
+  enable_service_ =
+      get_node()->create_service<rif_msgs::srv::SetBool>("~/enable",
+                                                         std::bind(&AdmittanceController::enable_cb, this,
+                                                                   std::placeholders::_1, std::placeholders::_2));
   return controller_interface::CallbackReturn::SUCCESS;
+}
+
+bool AdmittanceController::set_enabled(bool enabled)
+{
+  std::lock_guard<std::mutex> guard(mutex_enabled_);
+  if (enabled_ != enabled) {
+    // Initialize some important variables for admittance controller
+    // initialize states
+    read_state_from_hardware(joint_state_, ft_values_);
+    for (auto val : joint_state_.positions)
+    {
+      if (std::isnan(val))
+      {
+        RCLCPP_ERROR(get_node()->get_logger(), "Failed to read joint positions from the hardware.\n");
+        return false;
+      }
+    }
+
+    // Use current joint_state as a default reference
+    last_reference_ = joint_state_;
+    last_commanded_ = joint_state_;
+    reference_ = joint_state_;
+    reference_admittance_ = joint_state_;
+    admittance_->reset(num_joints_);
+
+    // Set the reference to the current joint_state
+    // Note: this only works with RIF's modified JTC since it doesn't
+    // continuously write to the reference
+    for (size_t i = 0; i < num_joints_; ++i)
+    {
+      position_reference_[i].get() = joint_state_.positions[i];
+      velocity_reference_[i].get() = joint_state_.velocities[i];
+    }
+  }
+  enabled_ = enabled;
+
+  RCLCPP_INFO(get_node()->get_logger(), "Admittance controller enabled: %d", enabled_);
+
+  return true;
+}
+
+bool AdmittanceController::is_enabled()
+{
+  std::lock_guard<std::mutex> guard(mutex_enabled_);
+  return enabled_;
+}
+
+void AdmittanceController::enable_cb(const std::shared_ptr<rif_msgs::srv::SetBool::Request> request,
+                                     std::shared_ptr<rif_msgs::srv::SetBool::Response> response) {
+  response->success = set_enabled(request->data);
 }
 
 controller_interface::InterfaceConfiguration AdmittanceController::command_interface_configuration()
@@ -405,22 +459,33 @@ controller_interface::return_type AdmittanceController::update_and_write_command
     return controller_interface::return_type::ERROR;
   }
 
+  if (period.seconds() > 5.0) {
+    RCLCPP_WARN(
+        get_node()->get_logger(), "Large dt, skipping!");
+    return controller_interface::return_type::OK;
+  }
+
   // update input reference from chainable interfaces
   read_state_reference_interfaces(reference_);
 
-  // get all controller inputs
-  read_state_from_hardware(joint_state_, ft_values_);
+  if (is_enabled()) {
+    // get all controller inputs
+    read_state_from_hardware(joint_state_, ft_values_);
 
-  // apply admittance control to reference to determine desired state
-  admittance_->update(joint_state_, ft_values_, reference_, period, reference_admittance_);
+    // apply admittance control to reference to determine desired state
+    admittance_->update(joint_state_, ft_values_, reference_, period, reference_admittance_);
 
-  // write calculated values to joint interfaces
-  write_state_to_hardware(reference_admittance_);
+    // write calculated values to joint interfaces
+    write_state_to_hardware(reference_admittance_);
 
-  // Publish controller state
-  state_publisher_->lock();
-  state_publisher_->msg_ = admittance_->get_controller_state();
-  state_publisher_->unlockAndPublish();
+    // Publish controller state
+    state_publisher_->lock();
+    state_publisher_->msg_ = admittance_->get_controller_state();
+    state_publisher_->unlockAndPublish();
+  } else {
+    // Pass through commanded values
+    write_state_to_hardware(reference_);
+  }
 
   return controller_interface::return_type::OK;
 }

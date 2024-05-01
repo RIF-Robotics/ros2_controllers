@@ -47,16 +47,7 @@ joint_trajectory_controller:
   open_loop_control: {
     type: bool,
     default_value: false,
-    description: "Use controller in open-loop control mode
-      \n\n
-      * The controller ignores the states provided by hardware interface but using last commands as states for starting the trajectory interpolation.\n
-      * It deactivates the feedback control, see the ``gains`` structure.
-      \n\n
-      This is useful if hardware states are not following commands, i.e., an offset between those (typical for hydraulic manipulators).
-      \n\n
-      If this flag is set, the controller tries to read the values from the command interfaces on activation.
-      If they have real numeric values, those will be used instead of state interfaces.
-      Therefore it is important set command interfaces to NaN (i.e., ``std::numeric_limits<double>::quiet_NaN()``) or state values when the hardware is started.\n",
+    description: "TODO",
     read_only: true,
   }
   allow_integration_in_goal_trajectories: {

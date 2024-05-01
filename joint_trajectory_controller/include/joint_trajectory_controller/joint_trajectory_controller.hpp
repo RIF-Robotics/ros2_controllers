@@ -288,6 +288,8 @@ private:
     trajectory_msgs::msg::JointTrajectoryPoint & point, size_t size);
   void resize_joint_trajectory_point_command(
     trajectory_msgs::msg::JointTrajectoryPoint & point, size_t size);
+
+  bool last_point_written_ = false;
 };
 
 }  // namespace joint_trajectory_controller
