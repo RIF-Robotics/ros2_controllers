@@ -25,7 +25,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   tf2_kdl
   tf2_ros
   trajectory_msgs
-  rif_msgs
+  std_srvs
 )
 
 find_package(ament_cmake REQUIRED)

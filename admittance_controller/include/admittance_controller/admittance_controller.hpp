@@ -43,7 +43,7 @@
 #include "semantic_components/force_torque_sensor.hpp"
 
 #include "trajectory_msgs/msg/joint_trajectory.hpp"
-#include "rif_msgs/srv/set_bool.hpp"
+#include "std_srvs/srv/set_bool.hpp"
 
 namespace admittance_controller
 {
@@ -184,9 +184,9 @@ protected:
    */
   void write_state_to_hardware(const trajectory_msgs::msg::JointTrajectoryPoint & state_command);
 
-  void enable_cb(const std::shared_ptr<rif_msgs::srv::SetBool::Request> request,
-                 std::shared_ptr<rif_msgs::srv::SetBool::Response> response);
-  rclcpp::Service<rif_msgs::srv::SetBool>::SharedPtr enable_service_;
+  void enable_cb(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                 std::shared_ptr<std_srvs::srv::SetBool::Response> response);
+  rclcpp::Service<std_srvs::srv::SetBool>::SharedPtr enable_service_;
 
   std::mutex mutex_enabled_;
   bool enabled_ = false;

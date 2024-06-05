@@ -59,7 +59,7 @@ controller_interface::CallbackReturn AdmittanceController::on_init()
   joint_state_ = last_reference_;
 
   enable_service_ =
-      get_node()->create_service<rif_msgs::srv::SetBool>("~/enable",
+      get_node()->create_service<std_srvs::srv::SetBool>("~/enable",
                                                          std::bind(&AdmittanceController::enable_cb, this,
                                                                    std::placeholders::_1, std::placeholders::_2));
   return controller_interface::CallbackReturn::SUCCESS;
@@ -110,8 +110,8 @@ bool AdmittanceController::is_enabled()
   return enabled_;
 }
 
-void AdmittanceController::enable_cb(const std::shared_ptr<rif_msgs::srv::SetBool::Request> request,
-                                     std::shared_ptr<rif_msgs::srv::SetBool::Response> response) {
+void AdmittanceController::enable_cb(const std::shared_ptr<std_srvs::srv::SetBool::Request> request,
+                                     std::shared_ptr<std_srvs::srv::SetBool::Response> response) {
   response->success = set_enabled(request->data);
 }
 
